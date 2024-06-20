@@ -1,0 +1,101 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: AWS CloudFormation Sample Template that will setup Apache on Linux
+  EC2 instance and reference the simple network Template previously created.
+
+Parameters:
+  InstanceName:
+    Description: This instance name
+    Type: String
+
+  InstanceType:
+    Type: String
+    Default: t2.micro
+    AllowedValues:
+      - t2.micro
+      - t2.small
+      - t2.large
+    Description: InstanceType. Default is t2.micro.
+
+  SecurityGroup:
+    Description: SecurityGroup description (simple parameter)
+    Type: String
+    Default: :This is the description for this SG
+
+  MyVPC:
+    Description: VPC to operate in
+    Type: AWS::EC2::VPC::Id
+
+  MyAvailabilityZone:
+    Description: Availabilityzone to operate in
+    Type: List<AWS::EC2::AvailabilityZone::Name>
+
+  MySubnetId:
+    Description: subnet to operate in
+    Type: AWS::EC2::Subnet::Id
+  KeyName:
+    Type: 'AWS::EC2::KeyPair::KeyName'
+    Description: The name of an existing EC2 KeyPair 
+    ConstraintDescription: Must be the name of an existing EC2 KeyPair.
+
+Mappings:
+  RegionMap:
+    us-east-1:
+      HVM64: ami-0ff8a91507f77f867
+    us-west-1:
+      HVM64: ami-0bdb828fd58c52235
+    us-west-2:
+      HVM64: ami-0b20a6f09484773af
+    eu-west-1:
+      HVM64: ami-047bb4163c506cd98
+    ap-southeast-1:
+      HVM64: ami-08569b978cc4dfa10
+    ap-northeast-1:
+      HVM64: ami-06cd52961ce9f0d85
+
+Resources:
+  myEC2Instance:
+    Type: AWS::EC2::Instance
+    Properties:
+      ImageId: !FindInMap
+        - RegionMap
+        - !Ref AWS::Region
+        - HVM64
+      InstanceType: !Ref InstanceType
+      SecurityGroupIds:
+        - !ImportValue
+            SampleNetworkCrossStack-SecurityGroupID
+      SubnetId:
+          !ImportValue 'SampleNetworkCrossStack-SubnetID'
+      KeyName: !Ref KeyName
+      UserData:
+        Fn::Base64: !Sub |
+           #!/bin/bash
+           dnf update -y
+           dnf list | grep httpd
+           dnf install -y httpd.x86_64
+           systemctl start httpd.service
+           systemctl status httpd.service
+           systemctl enable httpd.service
+  
+  ElasticIP: 
+    Type: AWS::EC2::EIP
+
+  MyElasticIPAssociation:
+    Type: AWS::EC2::EIPAssociation
+    Properties:
+      InstanceId: !Ref myEC2Instance
+      EIP: !Ref ElasticIP
+
+Outputs:
+  InstancePrivateIP:
+    Description: "Private IP address of the EC2 instance"
+    Value: !GetAtt myEC2Instance.PrivateIp
+    Export:
+      Name: !Sub '${AWS::StackName}-PrivIP'
+
+  InstancePublicDNS:
+    Description: "Public DNS name of the EC2 instance"
+    Value: !GetAtt myEC2Instance.PublicDnsName
+    Export:
+      Name: !Sub '${AWS::StackName}-pubDNSname'
+ 
