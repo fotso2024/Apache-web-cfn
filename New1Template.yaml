@@ -73,6 +73,7 @@ Resources:
            dnf update -y
            dnf list | grep httpd
            dnf install -y httpd.x86_64
+           echo 'WELCOME TO CLOUDFORMATION SEE YOU AT THE TOP' > /var/www/html/index.html
            systemctl start httpd.service
            systemctl status httpd.service
            systemctl enable httpd.service
